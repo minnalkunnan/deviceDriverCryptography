@@ -11,11 +11,23 @@ int main(void) {
       disks[i] = NULL;
    }
    
-   char* block = (char*)malloc(BLOCKSIZE * sizeof(char));
+   char* blockA = (char*)malloc(BLOCKSIZE * sizeof(char));
+   char* blockB = (char*)malloc(BLOCKSIZE * sizeof(char));
+   char* blockC = (char*)malloc(BLOCKSIZE * sizeof(char));
+   
+   for (i = 0; i < BLOCKSIZE; i++) {
+      blockA[i] = 'a';
+      blockB[i] = 'b';
+      blockC[i] = 'c';
+   } 
+   
    while(notDone) {
-      
+      notDone = 0;
    }
-   free(block);
+   
+   free(blockA);
+   free(blockB);
+   free(blockC);
    
    return 1;
 }
@@ -65,6 +77,7 @@ int unmountDisk(int disk) {
       disk = -1;
    } else {
       fclose(disks[disk]->fp);
+      free(disks[disk]);
       disks[disk] = NULL;
    }
    return disk;
