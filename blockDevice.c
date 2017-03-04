@@ -4,7 +4,7 @@ static int diskLength = 10;
 static File **disks;
 
 int main(void) {
-   int i = 0, notDone = 1;
+   int i = 0, notDone = 1, errStatus, mountNum;
    char input;
    disks = (File**)malloc(sizeof(diskLength * sizeof(File*)));
    for (i = 0; i < diskLength; i++) {
@@ -21,14 +21,30 @@ int main(void) {
       blockC[i] = 'c';
    } 
    
-   while(notDone) {
-      notDone = 0;
+   mountNum = mountDisk("files/easy.in", 4096);
+   printf("easy.in mounted as disk %d\n", mountNum);
+   errStatus = readBlock(0, 1, blockC);
+   //errStatus = 0;
+   if (errStatus != 0) {
+      printf("Error shouldnt happen\n");
+   }
+   printf("%s\n", blockC);
+   
+   errStatus = writeBlock(0, 0, blockB);
+   //errStatus = 0;
+   if (errStatus != 0) {
+      printf("Error shouldnt happen\n");
    }
    
    free(blockA);
    free(blockB);
    free(blockC);
    
+   for (i = 0; i < diskLength; i++) {
+      unmountDisk(i);
+   }
+   
+   //free(disks);
    return 1;
 }
 
@@ -47,7 +63,7 @@ int mountDisk(char *filename, int nBytes) {
       printf("File Bytes Specified For Mounting Not A Multiple Of Blocksize");
       return -1;
    } else {
-      fp = fopen(filename, "wr");
+      fp = fopen(filename, "r+");
    }
    
    while(fileInd < diskLength && disks[fileInd] != NULL) fileInd++;
@@ -70,10 +86,10 @@ This function unmounts the open disk (identified by ‘disk’).
 */
 int unmountDisk(int disk) {
    if (disk < 0 || disk > diskLength) {
-      printf("Bad Disk Index For Unmount");
+      printf("Bad Disk Index For Unmount\n");
       disk = -1;
    } else if (disks[disk] == NULL) {
-      printf("No Disk To Unmount At Index [%d]", disk);
+      printf("No Disk To Unmount At Index [%d]\n", disk);
       disk = -1;
    } else {
       fclose(disks[disk]->fp);
@@ -97,17 +113,20 @@ int readBlock(int disk, int bNum, void *block) {
    }
    
    file = disks[disk];
+   fp = file->fp;
    
-   fseek(fp, 0, SEEK_END);
+   fseek(fp, 0L, SEEK_END);
    size = ftell(fp);
-   if (bNum * BLOCKSIZE + BLOCKSIZE < size ) {
+   if (bNum * BLOCKSIZE + BLOCKSIZE > size ) {
+   printf("%d\n", size);
       printf("Disk contains no memory at this location\n");
       return -1;
    }
    rewind(fp);
    
    fseek(fp, bNum * BLOCKSIZE, SEEK_SET);
-   read(fp, block, BLOCKSIZE);
+   printf("LOC: %d\n", bNum * BLOCKSIZE);
+   fread(block, BLOCKSIZE, 1, fp);
 
    //Decryption will happen here
 
@@ -129,6 +148,7 @@ int writeBlock(int disk, int bNum, void *block) {
    }
    
    file = disks[disk];
+   fp = file->fp;
    
    if (bNum * BLOCKSIZE + BLOCKSIZE > file->nBytes) {
       printf("Cannot write to the file at this location\n");
@@ -138,7 +158,7 @@ int writeBlock(int disk, int bNum, void *block) {
    fseek(fp, bNum * BLOCKSIZE, SEEK_SET);
    
    //Encrypt block, then write
-   write(fp, block, BLOCKSIZE);
+   fwrite(block, BLOCKSIZE, 1, fp);
 
    
 
