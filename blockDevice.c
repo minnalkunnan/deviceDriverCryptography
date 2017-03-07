@@ -36,6 +36,12 @@ int main(void) {
       printf("Error shouldnt happen\n");
    }
    
+   errStatus = writeBlock(0, 1, blockB);
+   //errStatus = 0;
+   if (errStatus != 0) {
+      printf("Yay!\n");
+   }
+   
    free(blockA);
    free(blockB);
    free(blockC);
