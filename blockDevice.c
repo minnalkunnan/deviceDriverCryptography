@@ -1,5 +1,6 @@
 #include "blockDevice.h"
-
+#include "tiny-AES128-C/aes.h"
+#define PLAIN_SIZE 256
 static int diskLength = 10;
 static File **disks;
 
@@ -52,9 +53,9 @@ int main(void) {
    
    //free(disks);*/
    
-   printf("%d\n", ntz("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"));
+   //printf("%d\n", ntz("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"));
    
-   return 1;
+   
 }
 
 /*
@@ -171,11 +172,11 @@ int writeBlock(int disk, int bNum, void *block) {
 
    
 
-   //fclose(fp);  
+   //fclose(fp);
    return 0;
 }
 
-int ntz(char *str) {
+/*int ntz(char *str) {
    int i, j, chr;
    int mask = 1, count = 0;
    
@@ -192,4 +193,6 @@ int ntz(char *str) {
       mask = 1;
    }
    return count;
-}
+}*/
+
+
