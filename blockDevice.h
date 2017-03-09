@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
+#include "aes.h"
+
+#define PLAIN_SIZE 256
 #define BLOCKSIZE 4096
 
 typedef struct File {
