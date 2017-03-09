@@ -1,19 +1,23 @@
 #include "blockDevice.h"
 
 static int diskLength = 10;
+static int nonceNum = 0;
 static File **disks;
 
 int main(void) {
-   /*int i = 0, notDone = 1, errStatus, mountNum;
+   int i = 0, notDone = 1, errStatus, mountNum;
    char input;
    disks = (File**)malloc(sizeof(diskLength * sizeof(File*)));
    for (i = 0; i < diskLength; i++) {
       disks[i] = NULL;
    }
    
-   char* blockA = (char*)malloc(BLOCKSIZE * sizeof(char));
-   char* blockB = (char*)malloc(BLOCKSIZE * sizeof(char));
-   char* blockC = (char*)malloc(BLOCKSIZE * sizeof(char));
+   uint8_t nonce[16] = { '\0', };
+   uint8_t key[16] = {'d', 'e', 'a', 'l', ' ', 'w', 'i', 't', 'h', ' ', 'i', 't', ' ', 'b', 'r', 'o'};
+   
+   uint8_t* blockA = (uint8_t*)malloc(BLOCKSIZE * sizeof(uint8_t));
+   uint8_t* blockB = (uint8_t*)malloc(BLOCKSIZE * sizeof(uint8_t));
+   uint8_t* blockC = (uint8_t*)malloc(BLOCKSIZE * sizeof(uint8_t));
    
    for (i = 0; i < BLOCKSIZE; i++) {
       blockA[i] = 'a';
@@ -50,11 +54,11 @@ int main(void) {
       unmountDisk(i);
    }
    
-   //free(disks);*/
+   //free(disks);
    
    //printf("%d\n", ntz("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"));
    //uint8_t key[16];
-   int i;
+   /*int i;
    uint8_t* largePT = (uint8_t*)malloc(BLOCKSIZE * sizeof(uint8_t));
    for (i = 0; i < BLOCKSIZE; i++) {
       largePT[i] = 'a';
@@ -85,21 +89,53 @@ int main(void) {
    printf("%d\n", ntz(1));
    printf("%d\n", ntz(128));
    
+   
    ocb_encrypt(largePT, nonce, largeCT, key);
-   ocb_encrypt(largeCT, nonce, largePT, key);
+   
+   printf("CT");
+   for (i = 0; i < BLOCKSIZE + 8; i++) {
+      if (i % 16 == 0) printf("\n");
+      printf("%d ", largeCT[i]);
+   }
+   printf("\n");
+   
+   ocb_decrypt(largeCT, nonce, largePT, key);
+   
+   printf("PT");
+   for (i = 0; i < BLOCKSIZE; i++) {
+      if (i % 16 == 0) printf("\n");
+      printf("%d ", largePT[i]);
+   }
+   printf("\n");
    
    free(largePT);
-   free(largeCT);
+   free(largeCT);*/
 }
 
 /*
 This function opens a regular file and designates the first nBytes of it as space for the emulated disk. nBytes should be an integral number of the block size. If nBytes > 0 and there is already a file by the given filename, that file’s content may be overwritten. If nBytes is 0, an existing disk is opened, and should not be overwritten. There is no requirement to maintain integrity of any file content beyond nBytes. The return value is -1 on failure or a disk number on success.
 */
 int mountDisk(char *filename, int nBytes) {
-   int fileInd = 0;
+   int fileInd = 0, fileLen = 0, i;
    File *file;
    FILE *fp;
+   FILE *fpD;
+   char *dataname;
+   char *data = "data";
    
+   while (filename[fileLen] != '.') {
+      fileLen++;
+   }
+   fileLen++;
+   dataname = (char*)malloc(sizeof(char) * (fileLen + 4));
+   for (i = 0; i < fileLen + 4; i++) {
+      if (i < fileLen) {
+         dataname[i] = filename[i];
+      } else {
+         dataname[i] = data[i-fileLen];
+      }
+   }
+   //printf("%s\n", dataname);
    if (nBytes < 0) {
       printf("Negative File Bytes Specified For Mounting");
       return -1;
@@ -108,8 +144,9 @@ int mountDisk(char *filename, int nBytes) {
       return -1;
    } else {
       fp = fopen(filename, "r+");
+      fpD = fopen(dataname, "r+");
    }
-   
+   free(dataname);
    while(fileInd < diskLength && disks[fileInd] != NULL) fileInd++;
    
    if (fileInd == diskLength) {
@@ -119,6 +156,7 @@ int mountDisk(char *filename, int nBytes) {
    
    file = (File*)malloc(sizeof(File));
    file->fp = fp;
+   file->fpData = fpD;
    file->nBytes = nBytes;
    
    disks[fileInd] = file;
@@ -137,6 +175,7 @@ int unmountDisk(int disk) {
       disk = -1;
    } else {
       fclose(disks[disk]->fp);
+      fclose(disks[disk]->fpData);
       free(disks[disk]);
       disks[disk] = NULL;
    }
@@ -186,6 +225,10 @@ int writeBlock(int disk, int bNum, void *block) {
    FILE *fp;
    int size;
    
+   uint8_t key[16] = {'d', 'e', 'a', 'l', ' ', 'w', 'i', 't', 'h', ' ', 'i', 't', ' ', 'b', 'r', 'o'};
+   uint8_t nonce[16] = { '\0', };
+   uint8_t blockE[BLOCKSIZE + 8] = { '\0', };
+   
    if (disk >= diskLength || disks[disk] == NULL) {
       printf("Disk %d is not mounted. File not open.\n");
       return -1;
@@ -202,7 +245,9 @@ int writeBlock(int disk, int bNum, void *block) {
    fseek(fp, bNum * BLOCKSIZE, SEEK_SET);
    
    //Encrypt block, then write
-   fwrite(block, BLOCKSIZE, 1, fp);
+   ocb_encrypt(block, nonce, blockE, key);
+   
+   fwrite(blockE, BLOCKSIZE, 1, fp);
 
    
 

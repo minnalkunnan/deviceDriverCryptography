@@ -9,6 +9,7 @@
 
 typedef struct File {
    FILE* fp;
+   FILE* fpData;
    int nBytes;
 } File;
 
