@@ -27,12 +27,12 @@ int main(void) {
    
    mountNum = mountDisk("files/easy.in", 4096);
    printf("easy.in mounted as disk %d\n", mountNum);
-   errStatus = readBlock(0, 1, blockC);
+   /*errStatus = readBlock(0, 1, blockC);
    //errStatus = 0;
    if (errStatus != 0) {
       printf("Error shouldnt happen\n");
    }
-   printf("%s\n", blockC);
+   printf("%s\n", blockC);*/
    
    errStatus = writeBlock(0, 0, blockB);
    //errStatus = 0;
@@ -40,11 +40,18 @@ int main(void) {
       printf("Error shouldnt happen\n");
    }
    
-   errStatus = writeBlock(0, 1, blockB);
+   errStatus = readBlock(0, 0, blockC);
+   //errStatus = 0;
+   if (errStatus != 0) {
+      printf("Error shouldnt happen\n");
+   }
+   printf("%s\n", blockC);
+   
+   /*errStatus = writeBlock(0, 1, blockB);
    //errStatus = 0;
    if (errStatus != 0) {
       printf("Yay!\n");
-   }
+   }*/
    
    free(blockA);
    free(blockB);
@@ -188,8 +195,13 @@ readBlock() reads an entire block of BLOCKSIZE bytes from the open disk (identif
 int readBlock(int disk, int bNum, void *block) {
    File *file;
    FILE *fp;
+   FILE *fpData;
    int size;
-   
+   uint8_t key[16] = {'d', 'e', 'a', 'l', ' ', 'w', 'i', 't', 'h', ' ', 'i', 't', ' ', 'b', 'r', 'o'};
+   uint8_t tag[12] = { '\0', };
+   uint8_t blockE[BLOCKSIZE + 8] = { '\0', };
+   uint8_t nonce[16] = { '\0', };
+   int i;
    if (disk >= diskLength || disks[disk] == NULL) {
       printf("Disk %d is not mounted. File not open.\n");
       return -1;
@@ -197,6 +209,7 @@ int readBlock(int disk, int bNum, void *block) {
    
    file = disks[disk];
    fp = file->fp;
+   fpData = file->fpData;
    
    fseek(fp, 0L, SEEK_END);
    size = ftell(fp);
@@ -209,9 +222,23 @@ int readBlock(int disk, int bNum, void *block) {
    
    fseek(fp, bNum * BLOCKSIZE, SEEK_SET);
    printf("LOC: %d\n", bNum * BLOCKSIZE);
-   fread(block, BLOCKSIZE, 1, fp);
+   fread(blockE, BLOCKSIZE, 1, fp);
 
+   fseek(fpData, bNum * 12, SEEK_SET);
+   printf("LOC: %d\n", bNum * 12);
+   fread(tag, 12, 1, fpData);
+   
    //Decryption will happen here
+
+   //Complete Ciphertext
+   for (i = 0; i < 8; i++) {
+      blockE[BLOCKSIZE + i] = tag[i];
+   }
+   for (i = 0; i < 4; i++) {
+      nonce[i + 8] = tag[i + 8];      
+   }
+   
+   ocb_decrypt(blockE, nonce, block, key);
 
    //fclose(fp);  
    return 0;
@@ -223,11 +250,13 @@ writeBlock() takes disk number ‘disk’ and logical block number ‘bNum’ an
 int writeBlock(int disk, int bNum, void *block) {
    File *file;
    FILE *fp;
-   int size;
-   
+   FILE *fpData;
+   int size, i;
+      
    uint8_t key[16] = {'d', 'e', 'a', 'l', ' ', 'w', 'i', 't', 'h', ' ', 'i', 't', ' ', 'b', 'r', 'o'};
    uint8_t nonce[16] = { '\0', };
    uint8_t blockE[BLOCKSIZE + 8] = { '\0', };
+   uint8_t tag[12] = { '\0', };
    
    if (disk >= diskLength || disks[disk] == NULL) {
       printf("Disk %d is not mounted. File not open.\n");
@@ -236,6 +265,7 @@ int writeBlock(int disk, int bNum, void *block) {
    
    file = disks[disk];
    fp = file->fp;
+   fpData = file->fpData;
    
    if (bNum * BLOCKSIZE + BLOCKSIZE > file->nBytes) {
       printf("Cannot write to the file at this location\n");
@@ -249,8 +279,19 @@ int writeBlock(int disk, int bNum, void *block) {
    
    fwrite(blockE, BLOCKSIZE, 1, fp);
 
+   //Write encryption data
+   for (i = 0; i < 8; i++) {
+      tag[i] = blockE[BLOCKSIZE + i];
+   }
+   tag[8] = nonceNum >> 24;
+   tag[9] = nonceNum >> 16;
+   tag[10] = nonceNum >> 8;
+   tag[11] = nonceNum;
    
-
+   fseek(fpData, bNum * 12, SEEK_SET);
+   fwrite(tag, 12, 1, fpData);
+   
+   nonceNum++;
    //fclose(fp);
    return 0;
 }
