@@ -27,3 +27,5 @@ int readBlock(int disk, int bNum, void *block);
 writeBlock() takes disk number ‘disk’ and logical block number ‘bNum’ and encrypts and then writes the content of the buffer ‘block’ to that location. ‘block’ must be integral with BLOCKSIZE. Just as in readBlock(), writeBlock() must translate the logical block bNum to the correct byte position in the file. On success, it returns 0. -1 or smaller is returned if disk is not available (i.e. hasn’t been opened) or any other failures. You should define your own error code system.
 */
 int writeBlock(int disk, int bNum, void *block);
+
+int ntz(char *str);

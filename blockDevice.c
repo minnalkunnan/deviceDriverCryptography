@@ -4,7 +4,7 @@ static int diskLength = 10;
 static File **disks;
 
 int main(void) {
-   int i = 0, notDone = 1, errStatus, mountNum;
+   /*int i = 0, notDone = 1, errStatus, mountNum;
    char input;
    disks = (File**)malloc(sizeof(diskLength * sizeof(File*)));
    for (i = 0; i < diskLength; i++) {
@@ -50,7 +50,10 @@ int main(void) {
       unmountDisk(i);
    }
    
-   //free(disks);
+   //free(disks);*/
+   
+   printf("%d\n", ntz("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"));
+   
    return 1;
 }
 
@@ -170,4 +173,23 @@ int writeBlock(int disk, int bNum, void *block) {
 
    //fclose(fp);  
    return 0;
+}
+
+int ntz(char *str) {
+   int i, j, chr;
+   int mask = 1, count = 0;
+   
+   for (i = 15; i >= 0; i--) {
+      chr = str[i];
+      for (j = 0; j < 8; j++) {
+         if (chr & mask == 1) {
+            return count;
+         } else {
+            chr = chr >> 1;
+            count++;
+         }
+      }
+      mask = 1;
+   }
+   return count;
 }
