@@ -32,4 +32,12 @@ writeBlock() takes disk number ‘disk’ and logical block number ‘bNum’ an
 */
 int writeBlock(int disk, int bNum, void *block);
 
-int ntz(char *str);
+int ntz(int ind);
+
+void ocb_encrypt(uint8_t* pt, uint8_t* nonce, uint8_t* ct, uint8_t* key);
+
+void ocb_decrypt(uint8_t* ct, uint8_t* nonce, uint8_t* pt, uint8_t* key);
+
+void memDot(uint8_t* mem, int trailing, uint8_t* to);
+
+void invMemDot(uint8_t* mem, uint8_t* to);

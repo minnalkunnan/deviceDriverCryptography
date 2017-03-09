@@ -53,8 +53,43 @@ int main(void) {
    //free(disks);*/
    
    //printf("%d\n", ntz("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"));
+   //uint8_t key[16];
+   int i;
+   uint8_t* largePT = (uint8_t*)malloc(BLOCKSIZE * sizeof(uint8_t));
+   for (i = 0; i < BLOCKSIZE; i++) {
+      largePT[i] = 'a';
+   }
+   uint8_t* largeCT = (uint8_t*)malloc((BLOCKSIZE + 8) * sizeof(uint8_t));
+   for (i = 0; i < BLOCKSIZE + 8; i++) {
+      largeCT[i] = 'a';
+   }
+   uint8_t pt[16] = {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a'};
+   uint8_t ct[16];
+   uint8_t nonce[16] = { '\0', };
+   uint8_t key[16] = {'d', 'e', 'a', 'l', ' ', 'w', 'i', 't', 'h', ' ', 'i', 't', ' ', 'b', 'r', 'o'};
    
+   AES128_ECB_encrypt(pt, key, ct);
    
+   for (i = 0; i < 16; i++) {
+      printf("%d ", ct[i]);
+   }
+   printf("\n");
+   
+   AES128_ECB_decrypt(ct, key, pt);
+   
+   for (i = 0; i < 16; i++) {
+      printf("%d ", pt[i]);
+   }
+   printf("\n");
+   
+   printf("%d\n", ntz(1));
+   printf("%d\n", ntz(128));
+   
+   ocb_encrypt(largePT, nonce, largeCT, key);
+   ocb_encrypt(largeCT, nonce, largePT, key);
+   
+   free(largePT);
+   free(largeCT);
 }
 
 /*
@@ -175,23 +210,323 @@ int writeBlock(int disk, int bNum, void *block) {
    return 0;
 }
 
-int ntz(char *str) {
+int ntz(int ind) {
    int i, j, chr;
    int mask = 1, count = 0;
    
-   for (i = 15; i >= 0; i--) {
-      chr = str[i];
-      for (j = 0; j < 8; j++) {
-         if (chr & mask == 1) {
-            return count;
-         } else {
-            chr = chr >> 1;
-            count++;
-         }
+   for (i = 31; i >= 0; i--) {
+      //chr = str[i];
+      if (ind & mask == 1) {
+         return count;
+      } else {
+         ind = ind >> 1;
+         count++;
       }
-      mask = 1;
    }
    return count;
 }
 
+void memDot(uint8_t* mem, int trailing, uint8_t* to) {
+   uint8_t prevNum = 0;
+   uint8_t firstBit = mem[0] & 128;
+   uint8_t temp;
+   uint8_t mask = 1;
+   int i;
+   
+   //Get Mask
+   mask = mask << trailing;
+   mask -= 1;
+   
+   //printf("MASK: %d\n", mask);
+   
+   //Shift
+   for (i = 15; i >= 0; i--) {
+      temp = mem[i] << trailing;
+      if (prevNum) {
+         temp |= prevNum;
+      } else {
+         temp &= (255 ^ mask);
+      }
+      prevNum = (mem[i] >> (8 - trailing)) & mask;
+      to[i] = temp;
+   }
+   
+   //First Bit Check
+   if (firstBit) {
+      to[15] = to[15] ^ 135;
+   }
+}
 
+void invMemDot(uint8_t* mem, uint8_t* to) {
+   uint8_t prevBit = 0;
+   uint8_t lastBit = mem[15] & 1;
+   uint8_t temp;
+   int i;
+   
+   //Shift
+   for (i = 0; i < 16; i++) {
+      temp = mem[i] >> 1;
+      if (prevBit) {
+         temp |= 128;
+      } else {
+         temp &= 127;
+      }
+      prevBit = mem[i] & 1;
+      to[i] = temp;
+   }
+   
+   //Last Bit Check
+   if (lastBit) {
+      to[15] = to[15] ^ ((135 >> 1) & 127);
+      to[0] = to[0] ^ 128;
+   }
+}
+
+void ocb_encrypt(uint8_t* pt, uint8_t* nonce, uint8_t* ct, uint8_t* key) {
+   uint8_t temp[16] = { '\0', };
+   uint8_t temp2[16] = { '\0', };
+   uint8_t L[16] = { '\0', };
+   uint8_t R[16] = { '\0', };
+   uint8_t X[16] = { '\0', };
+   uint8_t Y[16] = { '\0', };
+   uint8_t Checksum[16] = { '\0', };
+   uint8_t T[8] = { '\0', };
+   
+   int i, j, partitions;
+   
+   partitions = BLOCKSIZE / 16;
+   //printf("Parts: %d\n", partitions);
+   
+   uint8_t M[partitions][16];
+   uint8_t Z[partitions][16];
+   
+   // Make M
+   for (i = 0; i < partitions; i++) {
+      for (j = 0; j < 16; j++) {
+         M[i][j] = pt[(i * 16) + j];
+      }
+   }
+   
+   /*memDot(M[0], 1, temp);
+   for (i = 0; i < 16; i++) {
+      printf("%d ", temp[i]);
+   }
+   printf("\n");
+   memDot(M[0], 3, temp);
+   for (i = 0; i < 16; i++) {
+      printf("%d ", temp[i]);
+   }
+   printf("\n");
+   invMemDot(M[0], temp);
+   for (i = 0; i < 16; i++) {
+      printf("%d ", temp[i]);
+   }
+   printf("\n");*/
+   /*printf("MESSAGE\n");
+   for (i = 0; i < partitions; i++) {
+      for (j = 0; j < 16; j++) {
+         printf("%d ", M[i][j]);
+      }
+      printf("\n");
+   }
+   printf("MESSAGE DONE\n");*/
+   
+   // Make L
+   AES128_ECB_encrypt(temp, key, L);
+   
+   // Make R
+   for (i = 0; i < 16; i++) {
+      temp[i] = L[i] ^ nonce[i];
+   }
+   AES128_ECB_encrypt(temp, key, R);
+   
+   // Make Z
+   for (i = 0; i < 16; i++) {
+      Z[0][i] = L[i] ^ R[i];
+   }
+   for (i = 1; i < partitions; i++) {
+      //printf("NTZ: %d\n", ntz(i));
+      memDot(L, ntz(i), temp);
+      for (j = 0; j < 16; j++) {
+         Z[i][j] = Z[i-1][j] ^ temp[j];
+      }
+   }
+   
+   // Fill in ciphertext
+   for (i = 0; i < partitions - 1; i++) {
+      for (j = 0; j < 16; j++) {
+         temp[j] = M[i][j] ^ Z[i][j];
+      }
+      AES128_ECB_encrypt(temp, key, temp2);
+      for (j = 0; j < 16; j++) {
+         ct[(i * 16) + j] = temp2[j] ^ Z[i][j];
+      }
+   }
+   
+   // Make X
+   invMemDot(L, temp);
+   // xor with length force set to 256
+   temp[14] = temp[14] ^ 1;
+   for (j = 0; j < 16; j++) {
+      X[j] = temp[j] ^ Z[partitions - 1][j];
+   }
+   
+   // Make Y
+   AES128_ECB_encrypt(X, key, Y);
+   
+   // Fill in last block of ciphertext
+   for (j = 0; j < 16; j++) {
+      ct[((partitions - 1) * 16) + j] = Y[j] ^ M[partitions - 1][j];
+   }
+   
+   // Do checksum
+   for (j = 0; j < 16; j++) {
+      for (i = 0; i < partitions - 1; i++) {
+         Checksum[j] = Checksum[j] ^ M[i][j];
+      }
+      Checksum[j] = Checksum[j] ^ ct[((partitions - 1) * 16) + j];
+      Checksum[j] = Checksum[j] ^ Y[j];
+   }
+   
+   // Fill in T
+   for (i = 0; i < 16; i++) {
+      temp[i] = Checksum[i] ^ Z[partitions - 1][i];
+   }
+   AES128_ECB_encrypt(temp, key, temp2);
+   for (i = 0; i < 8; i++) {
+      T[i] = temp2[i];
+   }
+   
+   // Attach tag to ciphertext
+   for (i = 0; i < 8; i++) {
+      ct[(partitions * 16) + i] = T[i];
+   }
+   
+   /*for (i = 0; i < 16; i++) {
+      printf("%d ", temp[i]);
+   }
+   printf("\n");
+   
+   for (i = 0; i < 16; i++) {
+      printf("%d ", L[i]);
+   }
+   printf("\n");
+   
+   for (i = 0; i < 16; i++) {
+      printf("%d ", R[i]);
+   }
+   printf("\n");*/
+}
+
+void ocb_decrypt(uint8_t* ct, uint8_t* nonce, uint8_t* pt, uint8_t* key) {
+   uint8_t temp[16] = { '\0', };
+   uint8_t temp2[16] = { '\0', };
+   uint8_t L[16] = { '\0', };
+   uint8_t R[16] = { '\0', };
+   uint8_t X[16] = { '\0', };
+   uint8_t Y[16] = { '\0', };
+   uint8_t Checksum[16] = { '\0', };
+   uint8_t T[8] = { '\0', };
+   uint8_t T2[8] = { '\0', };
+   
+   int i, j, partitions;
+   
+   partitions = BLOCKSIZE / 16;
+   //printf("Parts: %d\n", partitions);
+   
+   uint8_t C[partitions][16];
+   uint8_t Z[partitions][16];
+   
+   // Make C
+   for (i = 0; i < partitions; i++) {
+      for (j = 0; j < 16; j++) {
+         C[i][j] = ct[(i * 16) + j];
+      }
+   }
+   // Make T
+   for (i = 0; i < 8; i++) {
+      T[i] = ct[(partitions * 16) + i];
+   }
+   
+   // Make L
+   AES128_ECB_encrypt(temp, key, L);
+   
+   // Make R
+   for (i = 0; i < 16; i++) {
+      temp[i] = L[i] ^ nonce[i];
+   }
+   AES128_ECB_encrypt(temp, key, R);
+   
+   // Make Z
+   for (i = 0; i < 16; i++) {
+      Z[0][i] = L[i] ^ R[i];
+   }
+   for (i = 1; i < partitions; i++) {
+      //printf("NTZ: %d\n", ntz(i));
+      memDot(L, ntz(i), temp);
+      for (j = 0; j < 16; j++) {
+         Z[i][j] = Z[i-1][j] ^ temp[j];
+      }
+   }
+   
+   // Fill in plaintext
+   for (i = 0; i < partitions - 1; i++) {
+      for (j = 0; j < 16; j++) {
+         temp[j] = C[i][j] ^ Z[i][j];
+      }
+      AES128_ECB_decrypt(temp, key, temp2);
+      for (j = 0; j < 16; j++) {
+         pt[(i * 16) + j] = temp2[j] ^ Z[i][j];
+      }
+   }
+   
+   // Make X
+   invMemDot(L, temp);
+   // xor with length force set to 256
+   temp[14] = temp[14] ^ 1;
+   for (j = 0; j < 16; j++) {
+      X[j] = temp[j] ^ Z[partitions - 1][j];
+   }
+   
+   // Make Y
+   AES128_ECB_encrypt(X, key, Y);
+   
+   // Fill in last block of ciphertext
+   for (j = 0; j < 16; j++) {
+      pt[((partitions - 1) * 16) + j] = Y[j] ^ C[partitions - 1][j];
+   }
+   
+   // Do checksum
+   for (j = 0; j < 16; j++) {
+      for (i = 0; i < partitions - 1; i++) {
+         Checksum[j] = Checksum[j] ^ pt[(i * 16) + j];
+      }
+      Checksum[j] = Checksum[j] ^ C[partitions - 1][j];
+      Checksum[j] = Checksum[j] ^ Y[j];
+   }
+   
+   // Fill in T2
+   for (i = 0; i < 16; i++) {
+      temp[i] = Checksum[i] ^ Z[partitions - 1][i];
+   }
+   AES128_ECB_encrypt(temp, key, temp2);
+   for (i = 0; i < 8; i++) {
+      T2[i] = temp2[i];
+   }
+   
+   j = 1;
+   // Attach tag to ciphertext
+   for (i = 0; i < 8; i++) {
+      if (T[i] != T2[i]) {
+         j = 0;
+      }
+   }
+   
+   if (!j) {
+      for (i = 0; i < partitions; i++) {
+         for (j = 0; j < 16; j++) {
+            pt[(i * 16) + j] = '\0';
+         }
+      }
+   }
+}
