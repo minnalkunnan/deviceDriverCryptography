@@ -150,8 +150,8 @@ int mountDisk(char *filename, int nBytes) {
       printf("File Bytes Specified For Mounting Not A Multiple Of Blocksize");
       return -1;
    } else {
-      fp = fopen(filename, "r+");
-      fpD = fopen(dataname, "r+");
+      fp = fopen(filename, "w+");
+      fpD = fopen(dataname, "w+");
    }
    free(dataname);
    while(fileInd < diskLength && disks[fileInd] != NULL) fileInd++;
@@ -221,11 +221,11 @@ int readBlock(int disk, int bNum, void *block) {
    rewind(fp);
    
    fseek(fp, bNum * BLOCKSIZE, SEEK_SET);
-   printf("LOC: %d\n", bNum * BLOCKSIZE);
+   //printf("LOC: %d\n", bNum * BLOCKSIZE);
    fread(blockE, BLOCKSIZE, 1, fp);
 
    fseek(fpData, bNum * 12, SEEK_SET);
-   printf("LOC: %d\n", bNum * 12);
+   //printf("LOC: %d\n", bNum * 12);
    fread(tag, 12, 1, fpData);
    
    //Decryption will happen here
