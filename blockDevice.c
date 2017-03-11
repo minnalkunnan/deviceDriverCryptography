@@ -149,9 +149,12 @@ int mountDisk(char *filename, int nBytes) {
    } else if (nBytes % BLOCKSIZE != 0) {
       printf("File Bytes Specified For Mounting Not A Multiple Of Blocksize");
       return -1;
-   } else {
+   } else if (nBytes) {
       fp = fopen(filename, "w+");
       fpD = fopen(dataname, "w+");
+   } else {
+      fp = fopen(filename, "r+");
+      fpD = fopen(dataname, "r+");
    }
    free(dataname);
    while(fileInd < diskLength && disks[fileInd] != NULL) fileInd++;
